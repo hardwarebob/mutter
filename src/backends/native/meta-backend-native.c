@@ -148,6 +148,14 @@ meta_backend_native_create_default_seat (MetaBackend  *backend,
       break;
     }
 
+  if (g_strcmp0 (g_getenv ("MUTTER_NO_LIBINPUT"), "1") == 0 ||
+      g_strcmp0 (g_getenv ("MUTTER_DRM_STANDALONE"), "1") == 0)
+    {
+      flags |= META_SEAT_NATIVE_FLAG_NO_LIBINPUT;
+      if (!seat_id)
+        seat_id = META_BACKEND_HEADLESS_INPUT_SEAT;
+    }
+
   return CLUTTER_SEAT (g_object_new (META_TYPE_SEAT_NATIVE,
                                      "backend", backend,
                                      "context", clutter_context,
@@ -535,7 +543,18 @@ should_ignore_device (MetaBackendNative *backend_native,
     {
     case META_BACKEND_NATIVE_MODE_DEFAULT:
     case META_BACKEND_NATIVE_MODE_HEADLESS:
-      return meta_is_udev_device_ignore (device);
+      {
+        const char *drm_devices = g_getenv ("MUTTER_DRM_DEVICES");
+        if (drm_devices && *drm_devices)
+          {
+            const char *device_path = g_udev_device_get_device_file (device);
+            g_auto (GStrv) allowed = g_strsplit (drm_devices, ":", -1);
+
+            if (!device_path || !g_strv_contains ((const char * const *) allowed, device_path))
+              return TRUE;
+          }
+        return meta_is_udev_device_ignore (device);
+      }
     case META_BACKEND_NATIVE_MODE_TEST_HEADLESS:
       return TRUE;
     case META_BACKEND_NATIVE_MODE_TEST_VKMS:
@@ -718,9 +737,11 @@ meta_backend_native_create_launcher (MetaBackend   *backend,
 
   launcher = meta_launcher_new (backend, &local_error);
 
-  /* Headless test is allowed to run with and without a launcher */
-  if (!launcher && priv->mode == META_BACKEND_NATIVE_MODE_TEST_HEADLESS)
+  /* Headless test or standalone DRM is allowed to run without a launcher */
+  if (g_strcmp0 (g_getenv ("MUTTER_DRM_STANDALONE"), "1") == 0 ||
+      (!launcher && priv->mode == META_BACKEND_NATIVE_MODE_TEST_HEADLESS))
     {
+      g_clear_object (&launcher);
       *launcher_out = NULL;
       return TRUE;
     }

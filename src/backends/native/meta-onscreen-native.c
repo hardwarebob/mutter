@@ -2030,7 +2030,9 @@ maybe_post_next_frame (CoglOnscreen *onscreen)
       flip_flags = META_KMS_ASSIGN_PLANE_FLAG_NONE;
     }
 
-  power_save_mode = meta_monitor_manager_get_power_save_mode (monitor_manager);
+  power_save_mode =
+    meta_monitor_manager_get_effective_power_save_mode_for_crtc (monitor_manager,
+                                                                 onscreen_native->crtc);
   if (power_save_mode != META_POWER_SAVE_ON)
     {
       if (!onscreen_native->gbm.surface)

@@ -716,7 +716,9 @@ meta_renderer_native_pop_pending_mode_set (MetaRendererNative *renderer_native,
 
   g_assert (META_IS_RENDERER_VIEW (view));
 
-  power_save_mode = meta_monitor_manager_get_power_save_mode (monitor_manager);
+  power_save_mode =
+    meta_monitor_manager_get_effective_power_save_mode_for_crtc (monitor_manager,
+                                                                 meta_renderer_view_get_crtc (view));
   if (power_save_mode != META_POWER_SAVE_ON)
     return FALSE;
 
@@ -982,8 +984,6 @@ maybe_detach_onscreens (MetaRenderer *renderer)
   GList *views;
   GList *l;
 
-  power_save_mode = meta_monitor_manager_get_power_save_mode (monitor_manager);
-
   views = meta_renderer_get_views (renderer);
   for (l = views; l; l = l->next)
     {
@@ -995,6 +995,10 @@ maybe_detach_onscreens (MetaRenderer *renderer)
 
       meta_onscreen_native_detach (META_ONSCREEN_NATIVE (onscreen));
 
+      power_save_mode =
+        meta_monitor_manager_get_effective_power_save_mode_for_crtc (
+          monitor_manager,
+          meta_renderer_view_get_crtc (META_RENDERER_VIEW (stage_view)));
       if (power_save_mode == META_POWER_SAVE_ON)
         {
           renderer_native->detached_onscreens =
@@ -1076,7 +1080,9 @@ meta_renderer_native_prepare_frame (MetaRendererNative *renderer_native,
     clutter_stage_view_get_onscreen (CLUTTER_STAGE_VIEW (view));
   MetaPowerSave power_save_mode;
 
-  power_save_mode = meta_monitor_manager_get_power_save_mode (monitor_manager);
+  power_save_mode =
+    meta_monitor_manager_get_effective_power_save_mode_for_crtc (monitor_manager,
+                                                                 meta_renderer_view_get_crtc (view));
   if (power_save_mode != META_POWER_SAVE_ON)
     return;
 
@@ -1577,22 +1583,26 @@ on_power_save_mode_changed (MetaMonitorManager        *monitor_manager,
     {
       meta_renderer_native_queue_modes_reset (renderer_native);
     }
-  else
+  else if (!meta_monitor_manager_has_always_on_output (monitor_manager))
     {
       clear_detached_onscreens (renderer_native);
       meta_kms_discard_pending_page_flips (kms);
     }
-
-  if (power_save_mode == META_POWER_SAVE_ON)
-    power_state = CLUTTER_FRAME_CLOCK_POWER_STATE_ON;
-  else
-    power_state = CLUTTER_FRAME_CLOCK_POWER_STATE_OFF;
 
   for (l = meta_renderer_get_views (renderer); l; l = l->next)
     {
       ClutterStageView *stage_view = l->data;
       ClutterFrameClock *frame_clock =
         clutter_stage_view_get_frame_clock (stage_view);
+      MetaPowerSave view_power_save_mode =
+        meta_monitor_manager_get_effective_power_save_mode_for_crtc (
+          monitor_manager,
+          meta_renderer_view_get_crtc (META_RENDERER_VIEW (stage_view)));
+
+      if (view_power_save_mode == META_POWER_SAVE_ON)
+        power_state = CLUTTER_FRAME_CLOCK_POWER_STATE_ON;
+      else
+        power_state = CLUTTER_FRAME_CLOCK_POWER_STATE_OFF;
 
       clutter_frame_clock_set_power_state (frame_clock, power_state);
     }

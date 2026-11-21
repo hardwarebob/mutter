@@ -478,3 +478,34 @@ meta_logical_monitor_update (MetaLogicalMonitor       *logical_monitor,
 
   return TRUE;
 }
+
+gboolean
+meta_logical_monitor_is_unlocked_while_locked (MetaLogicalMonitor *logical_monitor)
+{
+  MetaLogicalMonitorPrivate *priv;
+  GList *l;
+
+  g_return_val_if_fail (META_IS_LOGICAL_MONITOR (logical_monitor), FALSE);
+
+  priv = meta_logical_monitor_get_instance_private (logical_monitor);
+  if (!priv->monitor_manager)
+    return FALSE;
+
+  for (l = logical_monitor->monitors; l; l = l->next)
+    {
+      MetaMonitor *monitor = META_MONITOR (l->data);
+      GList *outputs = meta_monitor_get_outputs (monitor);
+      GList *ol;
+
+      for (ol = outputs; ol; ol = ol->next)
+        {
+          MetaOutput *output = META_OUTPUT (ol->data);
+          const char *name = meta_output_get_name (output);
+
+          if (meta_monitor_manager_is_output_unlocked_while_locked (priv->monitor_manager, name))
+            return TRUE;
+        }
+    }
+
+  return FALSE;
+}

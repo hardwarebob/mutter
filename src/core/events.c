@@ -107,6 +107,17 @@ handle_idletime_for_event (MetaDisplay        *display,
       event_type == CLUTTER_LEAVE)
     return;
 
+  {
+    ClutterInputDevice *source_device = clutter_event_get_source_device (event);
+    MetaMonitorManager *monitor_manager = meta_backend_get_monitor_manager (backend);
+
+    if (source_device &&
+        clutter_input_device_is_virtual (source_device) &&
+        monitor_manager &&
+        meta_monitor_manager_has_unlocked_while_locked_output (monitor_manager))
+      return;
+  }
+
   idle_manager = meta_backend_get_idle_manager (backend);
   meta_idle_manager_reset_idle_time (idle_manager);
 }

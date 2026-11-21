@@ -35,3 +35,6 @@ GList * meta_logical_monitor_get_monitors (MetaLogicalMonitor *logical_monitor);
 
 META_EXPORT
 int meta_logical_monitor_get_number (MetaLogicalMonitor *logical_monitor);
+
+META_EXPORT
+gboolean meta_logical_monitor_is_unlocked_while_locked (MetaLogicalMonitor *logical_monitor);

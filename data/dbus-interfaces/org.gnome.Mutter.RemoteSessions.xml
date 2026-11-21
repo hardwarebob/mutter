@@ -1,0 +1,46 @@
+<!DOCTYPE node PUBLIC
+'-//freedesktop//DTD D-BUS Object Introspection 1.0//EN'
+'http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd'>
+<node>
+  <!--
+      org.gnome.Mutter.RemoteSessions:
+      @short_description: Remote desktop/streaming session registry & per-output privacy policy
+
+      Allows remote streaming servers (e.g. Hermes) to register active remote
+      sessions, configure per-output lock/DPMS policies so a virtual output
+      remains unlocked and awake while physical displays lock/sleep, and
+      receive authenticated disconnect requests from the lock screen.
+  -->
+  <interface name="org.gnome.Mutter.RemoteSessions">
+    <property name="ActiveSessions" type="aa{sv}" access="read" />
+
+    <method name="RegisterSession">
+      <arg name="provider" type="s" direction="in" />
+      <arg name="client_name" type="s" direction="in" />
+      <arg name="output_name" type="s" direction="in" />
+      <arg name="session_id" type="s" direction="out" />
+    </method>
+
+    <method name="UnregisterSession">
+      <arg name="session_id" type="s" direction="in" />
+    </method>
+
+    <method name="RequestDisconnect">
+      <arg name="session_id" type="s" direction="in" />
+    </method>
+
+    <method name="SetOutputPolicies">
+      <arg name="output_name" type="s" direction="in" />
+      <arg name="unlocked_while_locked" type="b" direction="in" />
+      <arg name="always_on" type="b" direction="in" />
+    </method>
+
+    <signal name="DisconnectRequested">
+      <arg name="session_id" type="s" />
+    </signal>
+
+    <signal name="ActiveSessionsChanged" />
+
+    <signal name="OutputPoliciesChanged" />
+  </interface>
+</node>

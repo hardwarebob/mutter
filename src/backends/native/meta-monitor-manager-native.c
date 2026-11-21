@@ -101,6 +101,24 @@ meta_monitor_manager_native_read_edid (MetaMonitorManager *manager,
   return meta_output_native_read_edid (META_OUTPUT_NATIVE (output));
 }
 
+static gboolean
+gpu_has_always_on_output (MetaMonitorManager *manager,
+                          MetaGpuKms         *gpu_kms)
+{
+  GList *l;
+
+  for (l = meta_gpu_get_outputs (META_GPU (gpu_kms)); l; l = l->next)
+    {
+      MetaOutput *output = l->data;
+
+      if (meta_monitor_manager_is_output_always_on (manager,
+                                                    meta_output_get_name (output)))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 static void
 meta_monitor_manager_native_set_power_save_mode (MetaMonitorManager *manager,
                                                  MetaPowerSave       mode)
@@ -111,6 +129,7 @@ meta_monitor_manager_native_set_power_save_mode (MetaMonitorManager *manager,
   for (l = meta_backend_get_gpus (backend); l; l = l->next)
     {
       MetaGpuKms *gpu_kms = l->data;
+      MetaKmsDevice *kms_device = meta_gpu_kms_get_kms_device (gpu_kms);
 
       switch (mode)
         {
@@ -121,7 +140,36 @@ meta_monitor_manager_native_set_power_save_mode (MetaMonitorManager *manager,
         case META_POWER_SAVE_SUSPEND:
         case META_POWER_SAVE_OFF:
           {
-            meta_kms_device_disable (meta_gpu_kms_get_kms_device (gpu_kms));
+            if (!gpu_has_always_on_output (manager, gpu_kms))
+              {
+                meta_kms_device_disable (kms_device);
+              }
+            else
+              {
+                MetaKmsUpdate *kms_update = meta_kms_update_new (kms_device);
+                gboolean has_crtc_disable = FALSE;
+                GList *cl;
+
+                for (cl = meta_gpu_get_crtcs (META_GPU (gpu_kms)); cl; cl = cl->next)
+                  {
+                    MetaCrtc *crtc = cl->data;
+                    MetaKmsCrtc *kms_crtc = meta_crtc_kms_get_kms_crtc (META_CRTC_KMS (crtc));
+
+                    if (meta_monitor_manager_get_effective_power_save_mode_for_crtc (manager, crtc) == META_POWER_SAVE_ON)
+                      continue;
+
+                    if (meta_kms_crtc_is_active (kms_crtc))
+                      {
+                        meta_kms_update_mode_set (kms_update, kms_crtc, NULL, NULL);
+                        has_crtc_disable = TRUE;
+                      }
+                  }
+
+                if (has_crtc_disable)
+                  meta_kms_device_post_update (kms_device, kms_update, META_KMS_UPDATE_FLAG_NONE);
+                else
+                  meta_kms_update_free (kms_update);
+              }
             break;
           }
         }

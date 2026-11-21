@@ -290,6 +290,21 @@ void                meta_monitor_manager_get_screen_size   (MetaMonitorManager *
 META_EXPORT_TEST
 MetaPowerSave       meta_monitor_manager_get_power_save_mode (MetaMonitorManager *manager);
 
+MetaPowerSave       meta_monitor_manager_get_effective_power_save_mode_for_crtc (MetaMonitorManager *manager,
+                                                                                 MetaCrtc           *crtc);
+
+void                meta_monitor_manager_refresh_output_policies (MetaMonitorManager *manager);
+
+gboolean            meta_monitor_manager_is_output_unlocked_while_locked (MetaMonitorManager *manager,
+                                                                          const char         *output_name);
+
+gboolean            meta_monitor_manager_is_output_always_on (MetaMonitorManager *manager,
+                                                              const char         *output_name);
+
+gboolean            meta_monitor_manager_has_unlocked_while_locked_output (MetaMonitorManager *manager);
+
+gboolean            meta_monitor_manager_has_always_on_output (MetaMonitorManager *manager);
+
 META_EXPORT_TEST
 void                meta_monitor_manager_set_power_save_mode (MetaMonitorManager *monitor_manager,
                                                               MetaPowerSave       mode);

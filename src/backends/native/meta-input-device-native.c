@@ -494,6 +494,7 @@ meta_input_device_native_new_virtual_in_impl (MetaSeatImpl           *seat_impl,
                          "name", name,
                          "device-type", type,
                          "seat", seat_impl->seat_native,
+                         "is-virtual", TRUE,
                          NULL);
 
   return CLUTTER_INPUT_DEVICE (device);

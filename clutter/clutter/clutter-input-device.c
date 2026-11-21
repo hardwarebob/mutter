@@ -68,6 +68,7 @@ enum
   PROP_N_MODE_GROUPS,
   PROP_N_BUTTONS,
   PROP_DEVICE_NODE,
+  PROP_IS_VIRTUAL,
 
   PROP_LAST
 };
@@ -95,6 +96,7 @@ struct _ClutterInputDevicePrivate
   int n_dials;
   int n_mode_groups;
   int n_buttons;
+  gboolean is_virtual;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (ClutterInputDevice, clutter_input_device, G_TYPE_OBJECT);
@@ -225,6 +227,10 @@ clutter_input_device_set_property (GObject      *gobject,
       priv->node_path = g_value_dup_string (value);
       break;
 
+    case PROP_IS_VIRTUAL:
+      priv->is_virtual = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (gobject, prop_id, pspec);
       break;
@@ -293,6 +299,10 @@ clutter_input_device_get_property (GObject    *gobject,
 
     case PROP_DEVICE_NODE:
       g_value_set_string (value, priv->node_path);
+      break;
+
+    case PROP_IS_VIRTUAL:
+      g_value_set_boolean (value, priv->is_virtual);
       break;
 
     default:
@@ -427,6 +437,13 @@ clutter_input_device_class_init (ClutterInputDeviceClass *klass)
                          G_PARAM_STATIC_STRINGS |
                          G_PARAM_CONSTRUCT_ONLY);
 
+  obj_props[PROP_IS_VIRTUAL] =
+    g_param_spec_boolean ("is-virtual", NULL, NULL,
+                          FALSE,
+                          G_PARAM_READWRITE |
+                          G_PARAM_STATIC_STRINGS |
+                          G_PARAM_CONSTRUCT_ONLY);
+
   gobject_class->constructed = clutter_input_device_constructed;
   gobject_class->dispose = clutter_input_device_dispose;
   gobject_class->set_property = clutter_input_device_set_property;
@@ -461,6 +478,17 @@ clutter_input_device_get_device_type (ClutterInputDevice *device)
                         CLUTTER_POINTER_DEVICE);
 
   return priv->device_type;
+}
+
+gboolean
+clutter_input_device_is_virtual (ClutterInputDevice *device)
+{
+  ClutterInputDevicePrivate *priv =
+    clutter_input_device_get_instance_private (device);
+
+  g_return_val_if_fail (CLUTTER_IS_INPUT_DEVICE (device), FALSE);
+
+  return priv->is_virtual;
 }
 
 /**

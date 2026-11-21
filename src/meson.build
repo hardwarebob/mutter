@@ -228,6 +228,8 @@ mutter_sources = [
   'backends/meta-pointer-constraint.h',
   'backends/meta-remote-access-controller-private.h',
   'backends/meta-remote-access-controller.c',
+  'backends/meta-remote-sessions.c',
+  'backends/meta-remote-sessions.h',
   'backends/meta-renderdoc.c',
   'backends/meta-renderdoc.h',
   'backends/meta-renderer.c',
@@ -892,6 +894,11 @@ dbus_interfaces = [
     'name': 'meta-dbus-login1',
     'interface': 'org.freedesktop.login1.xml',
     'prefix': 'org.freedesktop.',
+  },
+  {
+    'name': 'meta-dbus-remote-sessions',
+    'interface': 'org.gnome.Mutter.RemoteSessions.xml',
+    'prefix': 'org.gnome.Mutter.',
   },
 ]
 

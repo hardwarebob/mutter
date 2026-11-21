@@ -72,6 +72,9 @@ CLUTTER_EXPORT
 ClutterInputDeviceType  clutter_input_device_get_device_type    (ClutterInputDevice  *device);
 
 CLUTTER_EXPORT
+gboolean                clutter_input_device_is_virtual         (ClutterInputDevice  *device);
+
+CLUTTER_EXPORT
 const gchar *           clutter_input_device_get_device_name    (ClutterInputDevice  *device);
 
 CLUTTER_EXPORT

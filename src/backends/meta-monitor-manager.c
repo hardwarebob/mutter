@@ -55,6 +55,7 @@
 #include "backends/meta-monitor-config-store.h"
 #include "backends/meta-monitor-config-utils.h"
 #include "backends/meta-output.h"
+#include "backends/meta-remote-sessions.h"
 #include "backends/meta-virtual-monitor.h"
 #include "clutter/clutter.h"
 #include "core/util-private.h"
@@ -125,6 +126,8 @@ typedef struct _MetaMonitorManagerPrivate
 
   gboolean power_save_inhibit_orientation_tracking;
   gboolean orientation_unmanaged_inhibited;
+
+  MetaRemoteSessions *remote_sessions;
 } MetaMonitorManagerPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (MetaMonitorManager, meta_monitor_manager,
@@ -1463,6 +1466,12 @@ meta_monitor_manager_constructed (GObject *object)
 
   manager->current_switch_config = META_MONITOR_SWITCH_CONFIG_UNKNOWN;
 
+  {
+    MetaMonitorManagerPrivate *priv =
+      meta_monitor_manager_get_instance_private (manager);
+    priv->remote_sessions = meta_remote_sessions_new (manager);
+  }
+
   initialize_dbus_interface (manager);
 }
 
@@ -1489,6 +1498,7 @@ meta_monitor_manager_dispose (GObject *object)
 
   g_clear_handle_id (&manager->dbus_name_id, g_bus_unown_name);
 
+  g_clear_object (&priv->remote_sessions);
   g_clear_object (&manager->display_config);
   g_clear_object (&manager->config_manager);
 
@@ -3832,6 +3842,94 @@ meta_monitor_manager_get_power_save_mode (MetaMonitorManager *manager)
     meta_monitor_manager_get_instance_private (manager);
 
   return priv->power_save_mode;
+}
+
+MetaPowerSave
+meta_monitor_manager_get_effective_power_save_mode_for_crtc (MetaMonitorManager *manager,
+                                                             MetaCrtc           *crtc)
+{
+  MetaPowerSave mode = meta_monitor_manager_get_power_save_mode (manager);
+  GList *l;
+
+  if (mode == META_POWER_SAVE_ON || mode == META_POWER_SAVE_UNSUPPORTED || !crtc)
+    return mode;
+
+  for (l = meta_backend_get_gpus (manager->backend); l; l = l->next)
+    {
+      MetaGpu *gpu = l->data;
+      GList *ol;
+
+      for (ol = meta_gpu_get_outputs (gpu); ol; ol = ol->next)
+        {
+          MetaOutput *output = ol->data;
+
+          if (meta_output_get_assigned_crtc (output) == crtc &&
+              meta_monitor_manager_is_output_always_on (manager,
+                                                        meta_output_get_name (output)))
+            return META_POWER_SAVE_ON;
+        }
+    }
+
+  return mode;
+}
+
+void
+meta_monitor_manager_refresh_output_policies (MetaMonitorManager *manager)
+{
+  MetaMonitorManagerPrivate *priv =
+    meta_monitor_manager_get_instance_private (manager);
+
+  if (priv->power_save_mode != META_POWER_SAVE_ON &&
+      priv->power_save_mode != META_POWER_SAVE_UNSUPPORTED)
+    {
+      MetaMonitorManagerClass *klass = META_MONITOR_MANAGER_GET_CLASS (manager);
+
+      if (klass->set_power_save_mode)
+        klass->set_power_save_mode (manager, priv->power_save_mode);
+
+      g_signal_emit (manager, signals[POWER_SAVE_MODE_CHANGED], 0,
+                     META_POWER_SAVE_CHANGE_REASON_MODE_CHANGE);
+    }
+}
+
+gboolean
+meta_monitor_manager_is_output_unlocked_while_locked (MetaMonitorManager *manager,
+                                                      const char         *output_name)
+{
+  MetaMonitorManagerPrivate *priv =
+    meta_monitor_manager_get_instance_private (manager);
+
+  return meta_remote_sessions_get_output_unlocked (priv->remote_sessions,
+                                                   output_name);
+}
+
+gboolean
+meta_monitor_manager_is_output_always_on (MetaMonitorManager *manager,
+                                          const char         *output_name)
+{
+  MetaMonitorManagerPrivate *priv =
+    meta_monitor_manager_get_instance_private (manager);
+
+  return meta_remote_sessions_get_output_always_on (priv->remote_sessions,
+                                                    output_name);
+}
+
+gboolean
+meta_monitor_manager_has_unlocked_while_locked_output (MetaMonitorManager *manager)
+{
+  MetaMonitorManagerPrivate *priv =
+    meta_monitor_manager_get_instance_private (manager);
+
+  return meta_remote_sessions_has_any_unlocked_output (priv->remote_sessions);
+}
+
+gboolean
+meta_monitor_manager_has_always_on_output (MetaMonitorManager *manager)
+{
+  MetaMonitorManagerPrivate *priv =
+    meta_monitor_manager_get_instance_private (manager);
+
+  return meta_remote_sessions_has_any_always_on_output (priv->remote_sessions);
 }
 
 static void

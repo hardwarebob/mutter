@@ -333,6 +333,27 @@ add_virtual_monitor_cb (const char  *option_name,
     }
 }
 
+static gboolean
+drm_standalone_cb (const char  *option_name,
+                   const char  *value,
+                   gpointer     data,
+                   GError     **error)
+{
+  g_setenv ("MUTTER_DRM_STANDALONE", "1", TRUE);
+  g_setenv ("MUTTER_NO_LIBINPUT", "1", TRUE);
+  return TRUE;
+}
+
+static gboolean
+no_libinput_cb (const char  *option_name,
+                const char  *value,
+                gpointer     data,
+                GError     **error)
+{
+  g_setenv ("MUTTER_NO_LIBINPUT", "1", TRUE);
+  return TRUE;
+}
+
 static void
 meta_context_main_add_option_entries (MetaContextMain *context_main)
 {
@@ -367,6 +388,16 @@ meta_context_main_add_option_entries (MetaContextMain *context_main)
       "headless", 0, 0, G_OPTION_ARG_NONE,
       &context_main->options.headless,
       N_("Run as a headless display server")
+    },
+    {
+      "drm-standalone", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
+      drm_standalone_cb,
+      N_("Run DRM/KMS backend without claiming seat0 VT ownership")
+    },
+    {
+      "no-libinput", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
+      no_libinput_cb,
+      N_("Disable physical libinput devices (virtual/libei input only)")
     },
     {
       "virtual-monitor", 0, 0, G_OPTION_ARG_CALLBACK,
