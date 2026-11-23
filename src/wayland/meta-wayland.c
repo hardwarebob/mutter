@@ -655,10 +655,68 @@ meta_wayland_compositor_add_timed_transaction (MetaWaylandCompositor  *composito
                          (GCompareDataFunc)compare_transaction_times, NULL);
 }
 
+static void
+unblock_hidden_barrier_surfaces (MetaWaylandCompositor *compositor)
+{
+  MetaBackend *backend = meta_context_get_backend (compositor->context);
+  MetaMonitorManager *monitor_manager = meta_backend_get_monitor_manager (backend);
+  const gboolean all_asleep =
+    monitor_manager &&
+    meta_monitor_manager_get_power_save_mode (monitor_manager) != META_POWER_SAVE_ON &&
+    !meta_monitor_manager_has_always_on_output (monitor_manager);
+  GList *l = compositor->barrier_surfaces;
+
+  while (l)
+    {
+      GList *l_cur = l;
+      MetaWaylandSurface *surface = l->data;
+      MetaSurfaceActor *actor = meta_wayland_surface_get_actor (surface);
+      const gboolean hidden =
+        !actor ||
+        !clutter_actor_is_mapped (CLUTTER_ACTOR (actor)) ||
+        meta_surface_actor_is_effectively_obscured (actor);
+
+      l = l->next;
+
+      if (!all_asleep && !hidden)
+        continue;
+
+      compositor->barrier_surfaces =
+        g_list_delete_link (compositor->barrier_surfaces, l_cur);
+      meta_wayland_transaction_unblock_surface (surface);
+    }
+}
+
+static void
+on_power_save_mode_changed (MetaMonitorManager    *monitor_manager,
+                            MetaPowerSave          mode,
+                            MetaWaylandCompositor *compositor)
+{
+  unblock_hidden_barrier_surfaces (compositor);
+}
+
 void
 meta_wayland_compositor_add_barrier_surface (MetaWaylandCompositor *compositor,
                                              MetaWaylandSurface    *surface)
 {
+  MetaBackend *backend = meta_context_get_backend (compositor->context);
+  MetaMonitorManager *monitor_manager = meta_backend_get_monitor_manager (backend);
+  MetaSurfaceActor *actor = meta_wayland_surface_get_actor (surface);
+  const gboolean all_asleep =
+    monitor_manager &&
+    meta_monitor_manager_get_power_save_mode (monitor_manager) != META_POWER_SAVE_ON &&
+    !meta_monitor_manager_has_always_on_output (monitor_manager);
+  const gboolean hidden =
+    !actor ||
+    !clutter_actor_is_mapped (CLUTTER_ACTOR (actor)) ||
+    meta_surface_actor_is_effectively_obscured (actor);
+
+  if (all_asleep || hidden)
+    {
+      meta_wayland_transaction_unblock_surface (surface);
+      return;
+    }
+
   if (g_list_find (compositor->barrier_surfaces, surface))
     return;
 
@@ -980,6 +1038,13 @@ meta_wayland_compositor_new (MetaContext *context)
 
   g_signal_connect (context, "started",
                     G_CALLBACK (on_started), compositor);
+
+  if (MetaMonitorManager *monitor_manager = meta_backend_get_monitor_manager (backend))
+    {
+      g_signal_connect_object (monitor_manager, "power-save-mode-changed",
+                               G_CALLBACK (on_power_save_mode_changed),
+                               compositor, 0);
+    }
 
   if (!wl_global_create (compositor->wayland_display,
                          &wl_compositor_interface,

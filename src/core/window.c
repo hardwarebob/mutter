@@ -1263,6 +1263,31 @@ meta_window_constructed (GObject *object)
       main_monitor = meta_backend_get_current_logical_monitor (backend);
       highest_scale_monitor = main_monitor;
     }
+
+  {
+    MetaMonitorManager *monitor_manager = meta_backend_get_monitor_manager (backend);
+    if (monitor_manager &&
+        meta_monitor_manager_has_unlocked_while_locked_output (monitor_manager) &&
+        (!main_monitor || !meta_logical_monitor_is_unlocked_while_locked (main_monitor)))
+      {
+        GList *l;
+        for (l = meta_monitor_manager_get_logical_monitors (monitor_manager); l; l = l->next)
+          {
+            MetaLogicalMonitor *lm = l->data;
+            if (meta_logical_monitor_is_unlocked_while_locked (lm))
+              {
+                main_monitor = lm;
+                highest_scale_monitor = lm;
+                if (!mtk_rectangle_overlap (&window->unconstrained_rect, &lm->rect))
+                  {
+                    window->unconstrained_rect.x = lm->rect.x;
+                    window->unconstrained_rect.y = lm->rect.y;
+                  }
+                break;
+              }
+          }
+      }
+  }
   g_set_object (&window->monitor, main_monitor);
   g_set_object (&window->target_monitor, main_monitor);
   g_set_object (&window->highest_scale_monitor, highest_scale_monitor);
